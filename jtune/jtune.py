@@ -36,7 +36,7 @@ import sys
 import textwrap
 import time
 from decimal import Decimal
-from itertools import izip_longest, izip, count
+from itertools import izip_longest, count
 import argparse
 import multiprocessing as mp
 
@@ -79,9 +79,9 @@ class Display(object):
             message = message[:-1]
 
         if keep_newline:
-            print message
+            print(message)
         else:
-            print message,
+            print(message, end=' ')
 
     def add(self, message):
         """Append message to output items."""
@@ -400,7 +400,7 @@ def stdev(values=None):
     """
 
     values_mean = mean(values)
-    variance = map(lambda x: math.pow(Decimal(str(x)) - values_mean, 2), values)
+    variance = [math.pow(Decimal(str(x)) - values_mean, 2) for x in values]
 
     return math.sqrt(mean(variance, len(variance) - 1))
 
@@ -725,13 +725,13 @@ def _run_analysis(gc_data=None, jmap_data=None, jstat_data=None, proc_details=No
     display.render("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
 
     if jmap_data:
-        for k, v in jmap_data.iteritems():
+        for k, v in jmap_data.items():
             if "Size" in k:
                 v = reduce_k(v / 1024)
 
             display.render("{0:>17}: {1}\n".format(k, v))
     else:
-        for k, v in jvm_mem_cfg.iteritems():
+        for k, v in jvm_mem_cfg.items():
             display.render("{0:>17}: {1}\n".format(k, reduce_k(v / 1024)))
 
     display.render("\n")
@@ -962,10 +962,10 @@ def _show_recommendations(death_ages=None, young_gc_times=None, full_gc_times=No
     # This is tricky. I need to find the first record where the previous og size is bigger than
     # the current. This identifies when the first CMS runs, and from there, I can find the minimum
 
-    normal_gc_data = filter(lambda x: x.og_used > 0, gc_data)
+    normal_gc_data = [x for x in gc_data if x.og_used > 0]
 
     try:
-        record_num = [record_num for record_num, first_gc, second_gc in izip(count(), normal_gc_data, normal_gc_data[1:]) if first_gc.og_used > second_gc.og_used][0]
+        record_num = [record_num for record_num, first_gc, second_gc in zip(count(), normal_gc_data, normal_gc_data[1:]) if first_gc.og_used > second_gc.og_used][0]
     except IndexError:
         live_data_size_bytes = None
     else:
@@ -1269,12 +1269,12 @@ def process_gclog(log_file=None, log_file_pos=0):
     try:
         line_num = 0
 
-        print ""
-        print "* Reading gc.log file...",
+        print("")
+        print("* Reading gc.log file...", end=' ')
 
         current_size = os.stat(log_file).st_size
         if current_size < log_file_pos:
-            print "log file was truncated/rotated; reading from the start",
+            print("log file was truncated/rotated; reading from the start", end=' ')
             log_file_pos = 0
 
         start_time = datetime.datetime.now()
@@ -1288,7 +1288,7 @@ def process_gclog(log_file=None, log_file_pos=0):
 
         elapsed_time = sec_diff(start_time, datetime.datetime.now())
 
-        print "done. Scanned {0} lines in {1:0.4f} seconds.".format(line_num, elapsed_time)
+        print("done. Scanned {0} lines in {1:0.4f} seconds.".format(line_num, elapsed_time))
     except IOError:
         # I don't want/need to check the exception. If it fails, it fails.
         pass
@@ -1636,7 +1636,7 @@ def _get_widths(jstat_data=None, short_fields=False):
     widths = dict()
 
     for field in jstat_data:
-        max_width = max(map(len, map(str, jstat_data[field])))
+        max_width = max(list(map(len, list(map(str, jstat_data[field])))))
         field_width = len(field)
 
         if field_width > max_width:
@@ -1861,7 +1861,7 @@ def main():
             logger.error("I was not able to read the replay file. Exiting.")
             sys.exit(1)
         else:
-            print "* Note: Used cached data found in {0}.".format(replay_file)
+            print("* Note: Used cached data found in {0}.".format(replay_file))
     else:
         if not cmd_args.gc_stdin:
             try:
@@ -1934,7 +1934,7 @@ def main():
         # Keep the last dump of data in case there's an issue
         try:
             with open("/tmp/jtune_data-{0}.bin.bz2".format(user), "wb") as _file:
-                os.chmod("/tmp/jtune_data-{0}.bin.bz2".format(user), 0666)
+                os.chmod("/tmp/jtune_data-{0}.bin.bz2".format(user), 0o666)
                 _file.write(pickle.dumps((proc_details, jstat_data, display.display_output, jmap_data, raw_gc_log_data), pickle.HIGHEST_PROTOCOL).encode('bz2'))
         except IOError as msg:
             logger.error("\n".join(textwrap.wrap("I was not able to write to /tmp/jtune_data-{0}.bin.bz2 (no saving of state): {1}".format(user, msg), display.textwrap_offset)))
